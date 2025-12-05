@@ -26,7 +26,8 @@ import {
   MessageSquare,
   Globe,
   Send as SendIcon,
-  Edit3
+  Edit3,
+  WifiOff
 } from 'lucide-react';
 
 type ImageSource = 'none' | 'local' | 'ai';
@@ -298,6 +299,12 @@ const PostGenerator: React.FC = () => {
   };
 
   const handleGenerate = async () => {
+    // Check Offline Status for PWA
+    if (!navigator.onLine) {
+        setMessage({ type: 'error', text: 'Estás sin conexión. La IA necesita internet para funcionar.' });
+        return;
+    }
+
     const profile = getCompanyProfile();
     if (!profile) {
       setMessage({ type: 'error', text: 'Configura tu perfil de empresa primero.' });
@@ -535,7 +542,7 @@ const PostGenerator: React.FC = () => {
                         ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300' 
                         : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
                     }`}>
-                        {message.type === 'success' ? <CheckCircle2 size={16} className="mt-0.5" /> : <AlertCircle size={16} className="mt-0.5" />}
+                        {message.type === 'success' ? <CheckCircle2 size={16} className="mt-0.5" /> : message.text.includes('conexión') ? <WifiOff size={16} className="mt-0.5"/> : <AlertCircle size={16} className="mt-0.5" />}
                         {message.text}
                     </div>
                 )}
