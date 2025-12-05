@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { generateSocialPosts, generateAIImage } from '../services/geminiService';
-import { savePost, getCompanyProfile, getCurrentUser } from '../services/storageService';
+import { savePost, getCompanyProfile, getCurrentUser, getSocialConnection } from '../services/storageService';
+import { publishToSocialNetwork } from '../services/publishService';
 import { GeneratedContent, Platform, PostStatus, User } from '../types';
 import { 
   Calendar, 
@@ -402,8 +403,25 @@ const PostGenerator: React.FC = () => {
     setSaving(true);
     setMessage(null);
 
+    const finalImage = imageSource === 'local' ? localImage : imageSource === 'ai' ? generatedImage : undefined;
+
     try {
-        const finalImage = imageSource === 'local' ? localImage : imageSource === 'ai' ? generatedImage : undefined;
+        // --- REAL PUBLISHING LOGIC ---
+        if (status === PostStatus.Published) {
+            const connection = getSocialConnection(activeTab);
+            
+            // Note: If no connection configured, we warn but allow saving to DB as published (manual post)
+            if (connection && connection.isConnected) {
+                const publishResult = await publishToSocialNetwork(activeTab, content, finalImage, connection);
+                if (!publishResult.success) {
+                    throw new Error(publishResult.error || "Error desconocido al publicar en la red social.");
+                }
+            } else if (activeTab === Platform.Instagram || activeTab === Platform.Facebook) {
+                 // Soft warning for user
+                 console.warn("No API connection found. Saving as published in DB only.");
+            }
+        }
+
         const finalDate = status === PostStatus.Scheduled ? scheduledDate : undefined;
 
         // Use profile userId if available, otherwise fallback to current user uid
@@ -420,7 +438,7 @@ const PostGenerator: React.FC = () => {
 
         setMessage({ 
             type: 'success', 
-            text: status === PostStatus.Published ? '¡Publicado exitosamente!' : 'Guardado correctamente.' 
+            text: status === PostStatus.Published ? `¡Publicado exitosamente en ${activeTab}!` : 'Guardado correctamente.' 
         });
 
     } catch (error: any) {
@@ -435,6 +453,8 @@ const PostGenerator: React.FC = () => {
              errorMsg = 'Permiso denegado. Verifica tu sesión o reglas de base de datos.';
         } else if (error.message?.includes('argument')) {
              errorMsg = 'Datos inválidos. Verifica que el contenido no sea nulo.';
+        } else {
+             errorMsg = error.message; // Show API error
         }
 
         setMessage({ type: 'error', text: errorMsg });
