@@ -1,6 +1,19 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { CompanyProfile, GeneratedContent, Platform } from "../types";
 
+// Helper to safely get API Key without crashing in browser environments
+const getAPIKey = (): string => {
+  try {
+    // Direct check avoids ReferenceError if process is not defined
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+  } catch (e) {
+    // Ignore errors if process is not accessible
+  }
+  return '';
+};
+
 // Helper to construct dynamic schema based on selected platforms
 const createDynamicSchema = (platforms: Platform[]): Schema => {
   const properties: Record<string, any> = {};
@@ -25,8 +38,13 @@ export const generateSocialPosts = async (
   platforms: Platform[],
   modelName: string = "gemini-2.5-flash"
 ): Promise<GeneratedContent | null> => {
+  const apiKey = getAPIKey();
+  if (!apiKey) {
+    throw new Error("API Key no configurada. Falta la variable de entorno API_KEY.");
+  }
+
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
 
     // Rules per platform
     const rules = {
@@ -75,7 +93,10 @@ export const generateSocialPosts = async (
     const text = response.text;
     if (!text) return null;
 
-    return JSON.parse(text) as GeneratedContent;
+    // Sanitize JSON (remove markdown code blocks if present)
+    const jsonString = text.replace(/```json|```/g, '').trim();
+    
+    return JSON.parse(jsonString) as GeneratedContent;
   } catch (error) {
     console.error("Error generating posts:", error);
     throw error;
@@ -83,8 +104,13 @@ export const generateSocialPosts = async (
 };
 
 export const generateAIImage = async (topic: string, style: string = 'photorealistic', customPrompt?: string): Promise<string | null> => {
+    const apiKey = getAPIKey();
+    if (!apiKey) {
+        throw new Error("API Key no configurada.");
+    }
+
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         
         // Logic: Use custom prompt if provided, otherwise build from topic + style
         const finalPrompt = customPrompt && customPrompt.trim() !== '' 
@@ -119,8 +145,13 @@ export const generateAIImage = async (topic: string, style: string = 'photoreali
 };
 
 export const analyzePostImpact = async (content: string, platform: string): Promise<{ score: number; suggestion: string }> => {
+    const apiKey = getAPIKey();
+    if (!apiKey) {
+        return { score: 0, suggestion: "API Key no configurada." };
+    }
+
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -137,8 +168,10 @@ export const analyzePostImpact = async (content: string, platform: string): Prom
             }
         });
         const text = response.text;
-        return text ? JSON.parse(text) : { score: 0, suggestion: "Error analyzing" };
+        const jsonString = text?.replace(/```json|```/g, '').trim();
+        return jsonString ? JSON.parse(jsonString) : { score: 0, suggestion: "Error analyzing" };
     } catch (e) {
+        console.error(e);
         return { score: 50, suggestion: "No se pudo conectar con la IA." };
     }
 }
