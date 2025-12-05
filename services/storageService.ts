@@ -369,57 +369,58 @@ export const getSocialConnection = (platform: Platform): SocialConnection | unde
 // --- SEED DATA (For Demo) ---
 
 export const seedData = async (userId: string) => {
-    // If demo, check local storage key
-    if (isDemoUser(userId)) {
-        const stored = localStorage.getItem(DEMO_POSTS_KEY);
-        if (stored && JSON.parse(stored).length > 0) return;
+    try {
+        // If demo, check local storage key
+        if (isDemoUser(userId)) {
+            const stored = localStorage.getItem(DEMO_POSTS_KEY);
+            if (stored && JSON.parse(stored).length > 0) return;
+            
+            await saveCompanyProfile({
+                userId,
+                name: "Demo Corp",
+                industry: "Innovación",
+                tone: "Profesional",
+                description: "Empresa de demostración para PostFlow.",
+                keywords: ["Demo", "Test"]
+            });
+
+            await savePost({
+                userId,
+                content: `🚀 ¡Bienvenido al Modo Demo de PostFlow!
+                
+                Aquí puedes probar todas las funcionalidades:
+                1. Generar contenido con IA
+                2. Crear imágenes personalizadas
+                3. Programar publicaciones
+                4. Ver analíticas simuladas
+                
+                ¡Disfruta explorando! #Demo #PostFlow #AI`,
+                platform: Platform.LinkedIn,
+                status: PostStatus.Published,
+                scheduledDate: new Date().toISOString(),
+                mediaUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&auto=format&fit=crop&q=60"
+            });
+            return;
+        }
+
+        // Firebase check
+        const q = query(collection(db, POSTS_COL), where("userId", "==", userId));
+        const snap = await getDocs(q);
         
+        if (!snap.empty) return;
+
         await saveCompanyProfile({
             userId,
-            name: "Demo Corp",
-            industry: "Innovación",
-            tone: "Profesional",
-            description: "Empresa de demostración para PostFlow.",
-            keywords: ["Demo", "Test"]
+            name: "TechNova",
+            industry: "Tecnología",
+            tone: "Innovador y Profesional",
+            description: "Líderes en soluciones SaaS para el futuro del trabajo.",
+            keywords: ["SaaS", "AI", "Futuro"]
         });
 
         await savePost({
             userId,
-            content: `🚀 ¡Bienvenido al Modo Demo de PostFlow!
-            
-            Aquí puedes probar todas las funcionalidades:
-            1. Generar contenido con IA
-            2. Crear imágenes personalizadas
-            3. Programar publicaciones
-            4. Ver analíticas simuladas
-            
-            ¡Disfruta explorando! #Demo #PostFlow #AI`,
-            platform: Platform.LinkedIn,
-            status: PostStatus.Published,
-            scheduledDate: new Date().toISOString(),
-            mediaUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&auto=format&fit=crop&q=60"
-        });
-        return;
-    }
-
-    // Firebase check
-    const q = query(collection(db, POSTS_COL), where("userId", "==", userId));
-    const snap = await getDocs(q);
-    
-    if (!snap.empty) return;
-
-    await saveCompanyProfile({
-        userId,
-        name: "TechNova",
-        industry: "Tecnología",
-        tone: "Innovador y Profesional",
-        description: "Líderes en soluciones SaaS para el futuro del trabajo.",
-        keywords: ["SaaS", "AI", "Futuro"]
-    });
-
-    await savePost({
-        userId,
-        content: `🚀 Transformando el futuro digital.
+            content: `🚀 Transformando el futuro digital.
 
 ¿Sabías que el 80% de las empresas que adoptan IA duplican su productividad en 6 meses? No se trata solo de tecnología, se trata de *visión*.
 
@@ -428,9 +429,12 @@ En TechNova, estamos liderando este cambio con herramientas que se adaptan a ti.
 💡 ¿Estás listo para el siguiente nivel?
 
 #Innovation #FutureOfWork #AI #TechTrends #BusinessGrowth`,
-        platform: Platform.LinkedIn,
-        status: PostStatus.Published,
-        scheduledDate: new Date().toISOString(),
-        mediaUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=60"
-    });
+            platform: Platform.LinkedIn,
+            status: PostStatus.Published,
+            scheduledDate: new Date().toISOString(),
+            mediaUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=60"
+        });
+    } catch (e) {
+        console.error("Error seeding data:", e);
+    }
 };

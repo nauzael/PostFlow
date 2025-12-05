@@ -7,6 +7,19 @@ const AuthScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const [suggestGuest, setSuggestGuest] = useState(false);
 
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+        await loginAsDemo();
+        onLogin();
+    } catch (e) {
+        setError('Error al iniciar modo demo.');
+    } finally {
+        setLoading(false);
+    }
+  };
+
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
@@ -21,26 +34,17 @@ const AuthScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
       } else if (err.code === 'auth/configuration-not-found') {
           setError('Error de configuración. Revisa services/firebase.ts');
       } else if (err.code === 'auth/unauthorized-domain') {
-          setError('Dominio no autorizado en Firebase (localhost/preview). ¡Usa el Modo Invitado para acceder!');
+          setError('Dominio no autorizado (Vista Previa). Entrando como Invitado en 1s...');
           setSuggestGuest(true);
+          // Auto-redirect to demo mode for smooth UX
+          setTimeout(() => {
+            handleDemoLogin();
+          }, 1500);
       } else {
           setError(`Error: ${err.message || 'No se pudo conectar.'}`);
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-        await loginAsDemo();
-        onLogin();
-    } catch (e) {
-        setError('Error al iniciar modo demo.');
-    } finally {
-        setLoading(false);
     }
   };
 
