@@ -20,7 +20,9 @@ import {
     Key,
     Lock,
     Eye,
-    EyeOff
+    EyeOff,
+    HelpCircle,
+    ExternalLink
 } from 'lucide-react';
 
 const CompanySettings: React.FC = () => {
@@ -154,11 +156,20 @@ const CompanySettings: React.FC = () => {
                         icon={Twitter}
                         color="text-sky-500"
                         fields={[
-                            { key: 'apiKey', label: 'API Key' },
-                            { key: 'apiSecret', label: 'API Secret' },
+                            { key: 'apiKey', label: 'API Key (Consumer Key)' },
+                            { key: 'apiSecret', label: 'API Secret (Consumer Secret)' },
                             { key: 'accessToken', label: 'Access Token' },
                             { key: 'accessSecret', label: 'Access Token Secret' },
                         ]}
+                        guide={{
+                            steps: [
+                                "Ve al Developer Portal > Dashboard > Project App.",
+                                "En 'Keys and Tokens' > 'Consumer Keys', regenera para obtener API Key y Secret.",
+                                "En 'Authentication Tokens', genera Access Token y Secret.",
+                                "Asegúrate de configurar los permisos de la App como 'Read and Write'."
+                            ],
+                            url: "https://developer.twitter.com/en/portal/dashboard"
+                        }}
                     />
                     <IntegrationCard 
                         platform={Platform.LinkedIn}
@@ -168,6 +179,15 @@ const CompanySettings: React.FC = () => {
                             { key: 'clientId', label: 'Client ID' },
                             { key: 'clientSecret', label: 'Client Secret' },
                         ]}
+                        guide={{
+                            steps: [
+                                "Ve a LinkedIn Developers > My Apps > Create App.",
+                                "En la pestaña 'Auth', copia el Client ID y Client Secret.",
+                                "En 'Products', solicita acceso a 'Share on LinkedIn' y 'Sign In with LinkedIn'.",
+                                "Verifica tu página de empresa en la configuración de la App."
+                            ],
+                            url: "https://www.linkedin.com/developers/apps"
+                        }}
                     />
                     <IntegrationCard 
                         platform={Platform.Instagram}
@@ -175,8 +195,18 @@ const CompanySettings: React.FC = () => {
                         color="text-pink-600"
                         fields={[
                             { key: 'accessToken', label: 'Access Token' },
-                            { key: 'pageId', label: 'Instagram Business Account ID' },
+                            { key: 'pageId', label: 'Instagram Business ID' },
                         ]}
+                        guide={{
+                            steps: [
+                                "Ve a Meta for Developers > Tools > Graph API Explorer.",
+                                "Selecciona tu App. En 'User or Page', selecciona 'Get Page Access Token'.",
+                                "Autoriza los permisos (pages_show_list, instagram_basic, instagram_content_publish).",
+                                "Copia el Token generado.",
+                                "Para obtener el ID: En el Explorer, haz GET a 'me?fields=instagram_business_account'."
+                            ],
+                            url: "https://developers.facebook.com/tools/explorer/"
+                        }}
                     />
                     <IntegrationCard 
                         platform={Platform.Facebook}
@@ -186,6 +216,15 @@ const CompanySettings: React.FC = () => {
                             { key: 'accessToken', label: 'Page Access Token' },
                             { key: 'pageId', label: 'Page ID' },
                         ]}
+                        guide={{
+                            steps: [
+                                "Ve a Meta for Developers > Tools > Graph API Explorer.",
+                                "Selecciona tu App. En 'User or Page', selecciona tu Página de Facebook.",
+                                "Copia el 'Page Access Token' que se genera automáticamente.",
+                                "Para el Page ID: Ve a tu Página de Facebook > Configuración > Información de la página, o haz GET a 'me?fields=id' en el Explorer."
+                            ],
+                            url: "https://developers.facebook.com/tools/explorer/"
+                        }}
                     />
                 </div>
             )}
@@ -200,14 +239,16 @@ const IntegrationCard: React.FC<{
     platform: Platform,
     icon: any,
     color: string,
-    fields: {key: string, label: string}[]
-}> = ({ platform, icon: Icon, color, fields }) => {
+    fields: {key: string, label: string}[],
+    guide?: { steps: string[], url: string }
+}> = ({ platform, icon: Icon, color, fields, guide }) => {
     const [connection, setConnection] = useState<SocialConnection>({
         platform,
         isConnected: false,
         credentials: {}
     });
     const [isEditing, setIsEditing] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
     const [showKeys, setShowKeys] = useState(false);
 
     useEffect(() => {
@@ -234,6 +275,7 @@ const IntegrationCard: React.FC<{
         setConnection(newConnection);
         saveSocialConnection(newConnection);
         setIsEditing(false);
+        setShowHelp(false);
     };
 
     const handleDisconnect = () => {
@@ -273,63 +315,104 @@ const IntegrationCard: React.FC<{
                         </p>
                     </div>
                 </div>
-                <button 
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
-                    {isEditing ? 'Cancelar' : 'Configurar'}
-                </button>
+                <div className="flex gap-2">
+                    {isEditing && guide && (
+                        <button 
+                            onClick={() => setShowHelp(!showHelp)}
+                            className={`p-1.5 rounded-md transition-colors ${
+                                showHelp 
+                                ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300' 
+                                : 'text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'
+                            }`}
+                            title="¿Cómo obtener credenciales?"
+                        >
+                            <HelpCircle size={16} />
+                        </button>
+                    )}
+                    <button 
+                        onClick={() => setIsEditing(!isEditing)}
+                        className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-1"
+                    >
+                        {isEditing ? 'Cancelar' : 'Configurar'}
+                    </button>
+                </div>
             </div>
 
             {isEditing && (
-                <div className="space-y-3 mt-4 animate-fade-in border-t border-gray-100 dark:border-gray-700 pt-4">
-                    {fields.map(field => (
-                        <div key={field.key}>
-                            <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 block">
-                                {field.label}
-                            </label>
-                            <div className="relative">
-                                <input 
-                                    type={showKeys ? "text" : "password"}
-                                    value={connection.credentials[field.key] || ''}
-                                    onChange={(e) => setConnection(prev => ({
-                                        ...prev,
-                                        credentials: { ...prev.credentials, [field.key]: e.target.value }
-                                    }))}
-                                    className="w-full pl-3 pr-10 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white"
-                                    placeholder={`Ingrese ${field.label}`}
-                                />
-                                <div className="absolute right-3 top-2.5 text-gray-400">
-                                    <Key size={14} />
+                <div className="mt-4 animate-fade-in border-t border-gray-100 dark:border-gray-700 pt-4">
+                    
+                    {/* HELP SECTION */}
+                    {showHelp && guide && (
+                        <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-100 dark:border-indigo-800/50 text-sm">
+                            <h4 className="font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-2">
+                                <HelpCircle size={14} /> Cómo obtener las Keys:
+                            </h4>
+                            <ol className="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300 text-xs mb-3">
+                                {guide.steps.map((step, idx) => (
+                                    <li key={idx} className="leading-relaxed">{step}</li>
+                                ))}
+                            </ol>
+                            <a 
+                                href={guide.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
+                            >
+                                Ir al portal de desarrolladores <ExternalLink size={10} />
+                            </a>
+                        </div>
+                    )}
+
+                    {/* FIELDS */}
+                    <div className="space-y-3">
+                        {fields.map(field => (
+                            <div key={field.key}>
+                                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 block">
+                                    {field.label}
+                                </label>
+                                <div className="relative">
+                                    <input 
+                                        type={showKeys ? "text" : "password"}
+                                        value={connection.credentials[field.key] || ''}
+                                        onChange={(e) => setConnection(prev => ({
+                                            ...prev,
+                                            credentials: { ...prev.credentials, [field.key]: e.target.value }
+                                        }))}
+                                        className="w-full pl-3 pr-10 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white"
+                                        placeholder={`Ingrese ${field.label}`}
+                                    />
+                                    <div className="absolute right-3 top-2.5 text-gray-400">
+                                        <Key size={14} />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                    
-                    <div className="flex items-center justify-between pt-2">
-                         <button 
-                            type="button" 
-                            onClick={() => setShowKeys(!showKeys)}
-                            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1"
-                        >
-                            {showKeys ? <EyeOff size={14} /> : <Eye size={14} />}
-                            {showKeys ? 'Ocultar Keys' : 'Mostrar Keys'}
-                        </button>
-                        <div className="flex gap-2">
-                             {connection.isConnected && (
-                                <button 
-                                    onClick={handleDisconnect}
-                                    className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                >
-                                    Desconectar
-                                </button>
-                             )}
-                             <button 
-                                onClick={handleSave}
-                                className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+                        ))}
+                        
+                        <div className="flex items-center justify-between pt-2">
+                            <button 
+                                type="button" 
+                                onClick={() => setShowKeys(!showKeys)}
+                                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1"
                             >
-                                Guardar API
+                                {showKeys ? <EyeOff size={14} /> : <Eye size={14} />}
+                                {showKeys ? 'Ocultar Keys' : 'Mostrar Keys'}
                             </button>
+                            <div className="flex gap-2">
+                                {connection.isConnected && (
+                                    <button 
+                                        onClick={handleDisconnect}
+                                        className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                    >
+                                        Desconectar
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={handleSave}
+                                    className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+                                >
+                                    Guardar API
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
