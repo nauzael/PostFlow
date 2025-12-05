@@ -27,7 +27,8 @@ import {
   Globe,
   Send as SendIcon,
   Edit3,
-  WifiOff
+  WifiOff,
+  Loader2
 } from 'lucide-react';
 
 type ImageSource = 'none' | 'local' | 'ai';
@@ -251,6 +252,7 @@ const PostGenerator: React.FC = () => {
 
   // Process State
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   
@@ -307,7 +309,7 @@ const PostGenerator: React.FC = () => {
 
     const profile = getCompanyProfile();
     if (!profile) {
-      setMessage({ type: 'error', text: 'Configura tu perfil de empresa primero.' });
+      setMessage({ type: 'error', text: 'Configura tu perfil de empresa en la sección de Configuración primero.' });
       return;
     }
     if (!topic.trim()) return;
@@ -358,27 +360,62 @@ const PostGenerator: React.FC = () => {
     }
   };
 
-  const handleSave = (status: PostStatus) => {
+  const handleSave = async (status: PostStatus) => {
+    const user = getCurrentUser();
     const profile = getCompanyProfile();
-    if (!profile || !activeTab) return;
+    
+    // Validations
+    if (!user) {
+         setMessage({ type: 'error', text: 'Debes iniciar sesión para realizar esta acción.' });
+         return;
+    }
+
+    if (!activeTab) {
+         setMessage({ type: 'error', text: 'No hay contenido seleccionado para guardar.' });
+         return;
+    }
 
     const content = editedContent[activeTab];
-    const finalImage = imageSource === 'local' ? localImage : imageSource === 'ai' ? generatedImage : undefined;
-    const finalDate = status === PostStatus.Scheduled ? scheduledDate : undefined;
+    if (!content || !content.trim()) {
+         setMessage({ type: 'error', text: 'El contenido del post no puede estar vacío.' });
+         return;
+    }
 
-    savePost({
-      userId: profile.userId,
-      content: content,
-      platform: activeTab,
-      status: status,
-      scheduledDate: finalDate,
-      mediaUrl: finalImage || undefined
-    });
+    if (status === PostStatus.Scheduled && !scheduledDate) {
+        setMessage({ type: 'error', text: 'Por favor selecciona una fecha y hora para programar.' });
+        return;
+    }
 
-    setMessage({ 
-      type: 'success', 
-      text: status === PostStatus.Published ? '¡Publicado exitosamente!' : 'Guardado correctamente' 
-    });
+    setSaving(true);
+    setMessage(null);
+
+    try {
+        const finalImage = imageSource === 'local' ? localImage : imageSource === 'ai' ? generatedImage : undefined;
+        const finalDate = status === PostStatus.Scheduled ? scheduledDate : undefined;
+
+        // Use profile userId if available, otherwise fallback to current user uid
+        const targetUserId = profile?.userId || user.uid;
+
+        await savePost({
+            userId: targetUserId,
+            content: content,
+            platform: activeTab,
+            status: status,
+            scheduledDate: finalDate,
+            mediaUrl: finalImage || undefined
+        });
+
+        setMessage({ 
+            type: 'success', 
+            text: status === PostStatus.Published ? '¡Publicado exitosamente!' : 'Guardado correctamente.' 
+        });
+
+    } catch (error) {
+        console.error("Error saving post:", error);
+        setMessage({ type: 'error', text: 'Ocurrió un error al guardar. Intenta nuevamente.' });
+    } finally {
+        setSaving(false);
+    }
   };
 
   const getCharCountColor = (current: number, max: number) => {
@@ -659,25 +696,31 @@ const PostGenerator: React.FC = () => {
                             <div className="flex gap-2 w-full sm:w-auto flex-1 justify-end">
                                 <button 
                                     onClick={() => handleSave(PostStatus.Draft)}
-                                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                    disabled={saving}
+                                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
                                 >
-                                    <Save size={16} /> <span className="inline">Borrador</span>
+                                    {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} 
+                                    <span className="inline">{saving ? 'Guardando...' : 'Borrador'}</span>
                                 </button>
                                 
                                 {scheduledDate && (
                                     <button 
                                         onClick={() => handleSave(PostStatus.Scheduled)}
-                                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                                        disabled={saving}
+                                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
                                     >
-                                        <Calendar size={16} /> <span className="inline">Programar</span>
+                                        {saving ? <Loader2 className="animate-spin" size={16} /> : <Calendar size={16} />}
+                                        <span className="inline">{saving ? 'Guardando...' : 'Programar'}</span>
                                     </button>
                                 )}
 
                                 <button 
                                     onClick={() => handleSave(PostStatus.Published)}
-                                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-colors shadow-md hover:shadow-indigo-500/20"
+                                    disabled={saving}
+                                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-colors shadow-md hover:shadow-indigo-500/20 disabled:opacity-50"
                                 >
-                                    <Rocket size={16} /> <span className="inline">Publicar</span>
+                                    {saving ? <Loader2 className="animate-spin" size={16} /> : <Rocket size={16} />}
+                                    <span className="inline">{saving ? 'Publicando...' : 'Publicar'}</span>
                                 </button>
                             </div>
                         </div>

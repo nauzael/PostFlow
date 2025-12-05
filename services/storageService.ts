@@ -57,6 +57,7 @@ export const loginWithGoogle = async (): Promise<User> => {
 
         // Clear any demo user
         localStorage.removeItem(DEMO_USER_KEY);
+        window.dispatchEvent(new Event('storage-auth-changed'));
         
         return user;
     } catch (error) {
@@ -73,6 +74,8 @@ export const loginAsDemo = async (): Promise<User> => {
         photoURL: 'https://ui-avatars.com/api/?name=Invitado+Demo&background=random&color=fff&background=6366f1'
     };
     localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
+    // Dispatch event so useAuth hooks update immediately
+    window.dispatchEvent(new Event('storage-auth-changed'));
     return demoUser;
 };
 
@@ -83,6 +86,7 @@ export const logout = async () => {
         }
         localStorage.removeItem(DEMO_USER_KEY);
         localStorage.removeItem('postflow_user');
+        window.dispatchEvent(new Event('storage-auth-changed'));
     } catch (error) {
         console.error("Error signing out:", error);
     }
@@ -94,8 +98,7 @@ export const useAuth = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // 1. Check Firebase
-        const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+        const syncUser = (fbUser: FirebaseUser | null) => {
             if (fbUser) {
                 setUser({
                     uid: fbUser.uid,
@@ -103,19 +106,36 @@ export const useAuth = () => {
                     displayName: fbUser.displayName || 'Usuario',
                     photoURL: fbUser.photoURL || undefined
                 });
-                setLoading(false);
             } else {
-                // 2. Fallback to Demo User
+                // Check Demo User fallback
                 const demoUserStr = localStorage.getItem(DEMO_USER_KEY);
                 if (demoUserStr) {
                     setUser(JSON.parse(demoUserStr));
                 } else {
                     setUser(null);
                 }
-                setLoading(false);
             }
+            setLoading(false);
+        };
+
+        // 1. Firebase Listener
+        const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+            syncUser(fbUser);
         });
-        return () => unsubscribe();
+
+        // 2. Custom Event Listener (for Demo Mode updates)
+        const handleLocalAuth = () => {
+            // We pass auth.currentUser because we want to prioritize Firebase if it exists, 
+            // but usually this event is fired when we explicitly set/unset demo user.
+            syncUser(auth.currentUser);
+        }
+
+        window.addEventListener('storage-auth-changed', handleLocalAuth);
+
+        return () => {
+            unsubscribe();
+            window.removeEventListener('storage-auth-changed', handleLocalAuth);
+        };
     }, []);
 
     return { user, loading };
