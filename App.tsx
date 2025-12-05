@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Layout from './components/Layout';
 import AuthScreen from './components/AuthScreen';
 import { 
-  getCurrentUser, 
+  useAuth,
   logout, 
   seedData
 } from './services/storageService';
@@ -18,16 +18,20 @@ const CompanySettings = React.lazy(() => import('./components/CompanySettings'))
 
 // Loading Fallback
 const PageLoader = () => (
-  <div className="flex h-full items-center justify-center p-12">
-    <Loader2 className="animate-spin text-indigo-600" size={32} />
+  <div className="flex h-screen w-full items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="flex flex-col items-center gap-4">
+      <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={48} />
+      <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse">Cargando PostFlow...</p>
+    </div>
   </div>
 );
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // Use the useAuth hook which handles the async Firebase restoration
+  const { user, loading: authLoading } = useAuth();
+  
   const [activeTab, setActiveTab] = useState('dashboard');
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    // Initialize theme from localStorage or system preference
     if (typeof window !== 'undefined') {
         const stored = localStorage.getItem('theme');
         if (stored) return stored === 'dark';
@@ -36,8 +40,8 @@ const App: React.FC = () => {
     return false;
   });
 
+  // Theme Management
   useEffect(() => {
-    // Apply theme to document
     if (darkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -47,35 +51,34 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  // Seed Data when user loads
   useEffect(() => {
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-      seedData(currentUser.uid);
+    if (user) {
+      seedData(user.uid);
     }
-  }, []);
-
-  const handleLogin = () => {
-    const currentUser = getCurrentUser();
-    setUser(currentUser);
-    if(currentUser) seedData(currentUser.uid);
-  };
+  }, [user]);
 
   const handleLogout = () => {
     logout();
-    setUser(null);
   };
 
   const toggleTheme = () => setDarkMode(!darkMode);
 
-  if (!user) {
-    return <AuthScreen onLogin={handleLogin} />;
+  // 1. Show Loader while Firebase restores session
+  if (authLoading) {
+    return <PageLoader />;
   }
 
+  // 2. Show Auth Screen if no user found after loading
+  if (!user) {
+    // onLogin is just a trigger to re-check, but useAuth handles state updates automatically
+    return <AuthScreen onLogin={() => {}} />;
+  }
+
+  // 3. Render App Content
   const renderContent = () => {
-    // Suspense handles the loading state while the chunk is being downloaded
     return (
-      <Suspense fallback={<PageLoader />}>
+      <Suspense fallback={<div className="flex h-full items-center justify-center min-h-[400px]"><Loader2 className="animate-spin text-indigo-600" size={32} /></div>}>
         {(() => {
           switch (activeTab) {
             case 'generator': return <PostGenerator />;

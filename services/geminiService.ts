@@ -1,16 +1,28 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { CompanyProfile, GeneratedContent, Platform } from "../types";
 
-// Helper to safely get API Key without crashing in browser environments
+// Helper to safely get API Key checking multiple environment variable standards
 const getAPIKey = (): string => {
+  // 1. Check standard process.env (Webpack/Node/Create-React-App)
   try {
-    // Direct check avoids ReferenceError if process is not defined
     if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
       return process.env.API_KEY;
     }
-  } catch (e) {
-    // Ignore errors if process is not accessible
-  }
+  } catch (e) {}
+
+  // 2. Check Vite standard (import.meta.env)
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+        // @ts-ignore
+        if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
+        // @ts-ignore
+        if (import.meta.env.PUBLIC_API_KEY) return import.meta.env.PUBLIC_API_KEY;
+        // @ts-ignore
+        if (import.meta.env.API_KEY) return import.meta.env.API_KEY;
+    }
+  } catch (e) {}
+
   return '';
 };
 
@@ -40,7 +52,7 @@ export const generateSocialPosts = async (
 ): Promise<GeneratedContent | null> => {
   const apiKey = getAPIKey();
   if (!apiKey) {
-    throw new Error("API Key no configurada. Falta la variable de entorno API_KEY.");
+    throw new Error("API Key no encontrada. Asegúrate de configurar la variable de entorno API_KEY.");
   }
 
   try {
@@ -106,7 +118,7 @@ export const generateSocialPosts = async (
 export const generateAIImage = async (topic: string, style: string = 'photorealistic', customPrompt?: string): Promise<string | null> => {
     const apiKey = getAPIKey();
     if (!apiKey) {
-        throw new Error("API Key no configurada.");
+        throw new Error("API Key no encontrada.");
     }
 
     try {
