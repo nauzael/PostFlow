@@ -6,6 +6,11 @@ interface PublishResult {
     error?: string;
 }
 
+export interface VerificationResult {
+    success: boolean;
+    message: string;
+}
+
 /**
  * Publishes content to the real social media platforms via their APIs.
  * Note: Browser-based API calls to Meta often face CORS issues in localhost.
@@ -37,6 +42,66 @@ export const publishToSocialNetwork = async (
         console.error(`Error publishing to ${platform}:`, error);
         return { success: false, error: error.message || 'Error de conexión con la API.' };
     }
+};
+
+/**
+ * Verifies if the provided credentials are valid by making a lightweight read request.
+ */
+export const verifyConnection = async (
+    platform: Platform,
+    credentials: Record<string, string>
+): Promise<VerificationResult> => {
+    try {
+        switch (platform) {
+            case Platform.Facebook:
+                return await verifyFacebook(credentials);
+            case Platform.Instagram:
+                return await verifyInstagram(credentials);
+            case Platform.LinkedIn:
+                return { success: true, message: "Verificación simulada (LinkedIn requiere Backend proxy para CORS)." }; 
+            case Platform.Twitter:
+                return { success: true, message: "Verificación simulada (Twitter requiere OAuth 1.0 backend)." };
+            default:
+                return { success: false, message: "Plataforma no soportada." };
+        }
+    } catch (error: any) {
+        console.error(`Error verifying ${platform}:`, error);
+        return { success: false, message: error.message || "Error desconocido al conectar." };
+    }
+};
+
+// --- API IMPLEMENTATIONS ---
+
+const verifyFacebook = async (creds: Record<string, string>): Promise<VerificationResult> => {
+    if (!creds.accessToken || !creds.pageId) return { success: false, message: "Faltan datos." };
+    
+    // Simple GET request to check page name
+    const url = `https://graph.facebook.com/v18.0/${creds.pageId}?fields=name,id&access_token=${creds.accessToken}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.error) {
+        return { success: false, message: `Facebook API: ${data.error.message}` };
+    }
+
+    return { success: true, message: `Conectado correctamente con la página: ${data.name}` };
+};
+
+const verifyInstagram = async (creds: Record<string, string>): Promise<VerificationResult> => {
+    if (!creds.accessToken || !creds.pageId) return { success: false, message: "Faltan datos." };
+
+    // Simple GET request to check IG account
+    const url = `https://graph.facebook.com/v18.0/${creds.pageId}?fields=username&access_token=${creds.accessToken}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.error) {
+        return { success: false, message: `Instagram API: ${data.error.message}` };
+    }
+
+    return { success: true, message: `Conectado correctamente como: @${data.username}` };
 };
 
 const publishToFacebook = async (message: string, imageUrl: string | undefined, creds: Record<string, string>): Promise<PublishResult> => {

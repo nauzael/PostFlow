@@ -7,6 +7,7 @@ import {
     getSocialConnection,
     saveSocialConnection
 } from '../services/storageService';
+import { verifyConnection } from '../services/publishService';
 import { 
     Building2, 
     Link, 
@@ -22,7 +23,10 @@ import {
     Eye,
     EyeOff,
     HelpCircle,
-    ExternalLink
+    ExternalLink,
+    Zap,
+    Loader2,
+    AlertTriangle
 } from 'lucide-react';
 
 const CompanySettings: React.FC = () => {
@@ -250,6 +254,10 @@ const IntegrationCard: React.FC<{
     const [isEditing, setIsEditing] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
     const [showKeys, setShowKeys] = useState(false);
+    
+    // Test State
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{success: boolean, message: string} | null>(null);
 
     useEffect(() => {
         const stored = getSocialConnection(platform);
@@ -276,6 +284,35 @@ const IntegrationCard: React.FC<{
         saveSocialConnection(newConnection);
         setIsEditing(false);
         setShowHelp(false);
+        setTestResult(null); // Clear test results on save
+    };
+
+    const handleTest = async () => {
+        // Only verify if fields are filled
+        const allFilled = fields.every(f => connection.credentials[f.key]?.trim().length > 0);
+        if (!allFilled) {
+             setTestResult({ success: false, message: "Por favor complete todos los campos primero." });
+             return;
+        }
+
+        setTesting(true);
+        setTestResult(null);
+
+        try {
+            const result = await verifyConnection(platform, connection.credentials);
+            setTestResult(result);
+            
+            // If verification is successful, auto-save as connected
+            if (result.success) {
+                const newConnection = { ...connection, isConnected: true };
+                setConnection(newConnection);
+                saveSocialConnection(newConnection);
+            }
+        } catch (e) {
+            setTestResult({ success: false, message: "Error al ejecutar la prueba." });
+        } finally {
+            setTesting(false);
+        }
     };
 
     const handleDisconnect = () => {
@@ -292,6 +329,7 @@ const IntegrationCard: React.FC<{
         setConnection(resetConnection);
         saveSocialConnection(resetConnection);
         setIsEditing(false);
+        setTestResult(null);
     }
 
     return (
@@ -406,14 +444,36 @@ const IntegrationCard: React.FC<{
                                         Desconectar
                                     </button>
                                 )}
+                                
+                                <button 
+                                    onClick={handleTest}
+                                    disabled={testing}
+                                    className="px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                    {testing ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                                    Probar
+                                </button>
+
                                 <button 
                                     onClick={handleSave}
                                     className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
                                 >
-                                    Guardar API
+                                    Guardar
                                 </button>
                             </div>
                         </div>
+
+                        {/* Test Result Message */}
+                        {testResult && (
+                            <div className={`mt-2 p-2 rounded-lg text-xs flex items-start gap-2 ${
+                                testResult.success 
+                                ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                                : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                            }`}>
+                                {testResult.success ? <CheckCircle2 size={14} className="mt-0.5" /> : <AlertTriangle size={14} className="mt-0.5" />}
+                                <span>{testResult.message}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
