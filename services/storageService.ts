@@ -385,6 +385,7 @@ const dataURLtoBlob = (dataurl: string): Blob | null => {
         }
         return new Blob([u8arr], {type: mime});
     } catch (e) {
+        console.error("Error converting dataURL to blob", e);
         return null;
     }
 };
@@ -407,17 +408,28 @@ export const uploadImage = async (userId: string, dataUrl: string): Promise<stri
         // Metadata
         const metadata = { contentType: blob.type };
 
-        // Upload Blob (More robust than uploadString for large files)
+        console.log("Iniciando subida a Firebase Storage...");
+        
+        // Upload Blob
         await uploadBytes(storageRef, blob, metadata);
         
+        console.log("Subida completada. Obteniendo URL...");
+        
         // Get Public URL
-        return await getDownloadURL(storageRef);
+        const url = await getDownloadURL(storageRef);
+        return url;
+
     } catch (error: any) {
-        console.error("Error uploading image:", error);
+        console.error("Error detallado al subir imagen:", error);
+        
+        // Common CORS error handling signature in JS SDK (often appears as network error or infinite pending)
         if (error.code === 'storage/unauthorized') {
-            throw new Error("Permiso denegado en el almacenamiento. Verifica tu conexión o cuenta.");
+            throw new Error("Permiso denegado. Verifica las Reglas de Seguridad de Firebase Storage.");
+        } else if (error.message && (error.message.includes('network') || error.message.includes('retry'))) {
+            throw new Error("Error de red. Posible problema de CORS en Firebase. Configura CORS en tu bucket.");
         }
-        throw new Error("No se pudo subir la imagen a la nube. " + (error.message || ""));
+        
+        throw new Error("No se pudo subir la imagen. " + (error.message || ""));
     }
 };
 

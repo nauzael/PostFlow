@@ -4,15 +4,11 @@ import { CompanyProfile, GeneratedContent, Platform } from "../types";
 // Helper to safely get API Key checking multiple environment variable standards
 const getAPIKey = (): string => {
   // 1. Try accessing process.env.API_KEY directly inside try-catch.
-  // This supports environments where 'process' is undefined but the bundler
-  // replaces 'process.env.API_KEY' with a string literal.
   try {
     // @ts-ignore
     const key = process.env.API_KEY;
     if (key) return key;
-  } catch (e) {
-    // ReferenceError if process is not defined and not replaced
-  }
+  } catch (e) {}
 
   // 2. Check Vite standard (import.meta.env)
   try {
@@ -119,7 +115,7 @@ export const generateSocialPosts = async (
   }
 };
 
-export const generateAIImage = async (topic: string, style: string = 'photorealistic', customPrompt?: string): Promise<string | null> => {
+export const generateAIImage = async (topic: string, style: string = 'Fotorealista', customPrompt?: string): Promise<string | null> => {
     const apiKey = getAPIKey();
     if (!apiKey) {
         throw new Error("API Key no encontrada.");
@@ -128,10 +124,21 @@ export const generateAIImage = async (topic: string, style: string = 'photoreali
     try {
         const ai = new GoogleGenAI({ apiKey });
         
-        // Logic: Use custom prompt if provided, otherwise build from topic + style
+        // Translate UI styles to Engineering Prompts for better results with Nano Banana
+        const stylePrompts: Record<string, string> = {
+            'Fotorealista': 'Photorealistic, 4k, highly detailed, professional photography, cinematic lighting, sharp focus',
+            'Ilustración 3D': '3D render, clay style, blender, isometric, soft lighting, cute, high resolution',
+            'Minimalista': 'Minimalist, flat design, vector art, clean lines, simple background, pastel colors, modern',
+            'Cyberpunk': 'Cyberpunk, neon lights, futuristic, dark atmosphere, high contrast, sci-fi, detailed',
+            'Pop Art': 'Pop Art, vibrant colors, comic book style, bold lines, half-tone patterns, retro'
+        };
+
+        const visualStyle = stylePrompts[style] || 'Photorealistic, high quality';
+
+        // Construct a robust prompt
         const finalPrompt = customPrompt && customPrompt.trim() !== '' 
-            ? `${customPrompt}. Style: ${style}. Aspect ratio 1:1. High quality.` 
-            : `Create a high quality, professional social media image about: ${topic}. Style: ${style}. Aspect ratio 1:1. High contrast, vibrant colors, trending aesthetic.`;
+            ? `${customPrompt}. \n\nStyle modifiers: ${visualStyle}. Aspect ratio 1:1. High quality.` 
+            : `Create a professional, high-quality social media image about: "${topic}". \n\nVisual Style: ${visualStyle}. \n\nComposition: Centered, balanced, suitable for Instagram/Facebook. High resolution, trending on ArtStation.`;
 
         // Using gemini-2.5-flash-image (Nano Banana)
         const response = await ai.models.generateContent({
@@ -139,12 +146,11 @@ export const generateAIImage = async (topic: string, style: string = 'photoreali
             contents: {
               parts: [{ text: finalPrompt }]
             },
-            config: {
-               // Nano banana does not support responseMimeType or responseSchema
-            }
+            // Explicitly empty config: Nano Banana does NOT support responseMimeType, responseSchema, or systemInstruction
+            config: {}
         });
 
-        // Iterate through parts to find the image
+        // Robustly find the image part
         if (response.candidates?.[0]?.content?.parts) {
             for (const part of response.candidates[0].content.parts) {
                 if (part.inlineData) {
