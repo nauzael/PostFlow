@@ -203,11 +203,11 @@ const CompanySettings: React.FC = () => {
                         ]}
                         guide={{
                             steps: [
-                                "Ve a Meta for Developers > Tools > Graph API Explorer.",
-                                "Selecciona tu App. En 'User or Page', selecciona 'Get Page Access Token'.",
-                                "Autoriza los permisos (pages_show_list, instagram_basic, instagram_content_publish).",
-                                "Copia el Token generado.",
-                                "Para obtener el ID: En el Explorer, haz GET a 'me?fields=instagram_business_account'."
+                                "Ve al Graph API Explorer.",
+                                "Obtén un Token con permisos 'instagram_basic' y 'instagram_content_publish'.",
+                                "Importante: El 'Instagram Business ID' NO es el mismo que el 'Page ID'.",
+                                "Para encontrar el ID: En el explorer haz GET a 'me/accounts', copia el ID de la Página, y luego haz GET a '[PAGE_ID]?fields=instagram_business_account'.",
+                                "Usa el número que aparece en 'instagram_business_account.id'."
                             ],
                             url: "https://developers.facebook.com/tools/explorer/"
                         }}

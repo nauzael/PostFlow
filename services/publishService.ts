@@ -75,6 +75,11 @@ export const verifyConnection = async (
 const verifyFacebook = async (creds: Record<string, string>): Promise<VerificationResult> => {
     if (!creds.accessToken || !creds.pageId) return { success: false, message: "Faltan datos." };
     
+    // Validar formato numérico
+    if (!/^\d+$/.test(creds.pageId)) {
+        return { success: false, message: "El ID de Página debe contener solo números." };
+    }
+
     // Simple GET request to check page name
     const url = `https://graph.facebook.com/v18.0/${creds.pageId}?fields=name,id&access_token=${creds.accessToken}`;
     
@@ -91,17 +96,44 @@ const verifyFacebook = async (creds: Record<string, string>): Promise<Verificati
 const verifyInstagram = async (creds: Record<string, string>): Promise<VerificationResult> => {
     if (!creds.accessToken || !creds.pageId) return { success: false, message: "Faltan datos." };
 
-    // Simple GET request to check IG account
+    // Validar formato numérico estricto para evitar errores de objetos no encontrados por IDs basura
+    if (!/^\d+$/.test(creds.pageId)) {
+        return { success: false, message: "El ID debe ser numérico. Parece que has copiado un Token o Secret en lugar del ID (ej: 1784...)." };
+    }
+
+    // Intento 1: Verificar si es un ID de Instagram Business válido
     const url = `https://graph.facebook.com/v18.0/${creds.pageId}?fields=username&access_token=${creds.accessToken}`;
 
     const response = await fetch(url);
     const data = await response.json();
 
-    if (data.error) {
-        return { success: false, message: `Instagram API: ${data.error.message}` };
+    if (!data.error) {
+        return { success: true, message: `Conectado correctamente como: @${data.username}` };
     }
 
-    return { success: true, message: `Conectado correctamente como: @${data.username}` };
+    // Intento 2: DIAGNÓSTICO INTELIGENTE
+    // Si falla, verificamos si el usuario puso el ID de la Página de Facebook por error
+    if (data.error.code === 100 || data.error.type === 'OAuthException') {
+         const pageUrl = `https://graph.facebook.com/v18.0/${creds.pageId}?fields=instagram_business_account&access_token=${creds.accessToken}`;
+         try {
+             const pageRes = await fetch(pageUrl);
+             const pageData = await pageRes.json();
+             
+             if (pageData.instagram_business_account && pageData.instagram_business_account.id) {
+                 return { 
+                     success: false, 
+                     message: `¡Error de ID! Has puesto el ID de Facebook. Tu ID de Instagram es: ${pageData.instagram_business_account.id} (Cópialo y pégalo).` 
+                 };
+             } else if (pageData.id) {
+                 return {
+                     success: false,
+                     message: "Este ID es de Facebook y NO tiene un Instagram Business conectado. Vincula tu cuenta en la configuración de Facebook."
+                 };
+             }
+         } catch(e) {}
+    }
+
+    return { success: false, message: `Instagram API: ${data.error.message}` };
 };
 
 const publishToFacebook = async (message: string, imageUrl: string | undefined, creds: Record<string, string>): Promise<PublishResult> => {
